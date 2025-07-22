@@ -1,4 +1,4 @@
-with (import ./pkgs.nix);
+with (import ./pkgs.nix {});
 { nativeBuildInputs = [
     pkgs.haskell.compiler.ghc865Binary
     pkgsUnstable.cabal-install
