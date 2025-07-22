@@ -8,7 +8,7 @@ jobs:
   nix_shell:
     strategy:
       matrix:
-        os: [ubuntu-24.04, ubuntu-22.04, macos-13, macos-14]
+        os: [ubuntu-24.04, ubuntu-22.04, macos-13] # NOTE: GHC 8.6.5 not available for macos-14 (ARM64)
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
