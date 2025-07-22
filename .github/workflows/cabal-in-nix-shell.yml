@@ -1,0 +1,58 @@
+name: Build & test in nix-shell
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  nix_shell:
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, ubuntu-22.04, macos-13, macos-14]
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install Nix
+        uses: nixbuild/nix-quick-install-action@v30
+        with:
+          nix_version: 2.24.12
+          nix_conf: |
+            substituters = https://cache.nixos.org https://cache.iog.io
+            trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
+            system-features = benchmark big-parallel kvm nixos-test
+
+      - name: Cache Nix store
+        uses: nix-community/cache-nix-action@f68581e27a06c8c9115dec37e42325d562d9664b
+        with:
+          primary-key: nix-shell-${{ matrix.os }}-${{ hashFiles('shell.nix', 'nix/pkgs.nix') }}
+          restore-prefixes-first-match: nix-shell-${{ matrix.os }}-
+          gc-max-store-size: 4G
+
+      - name: Cache cabal stuff
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cabal/packages
+            ~/.cabal/store
+            dist-newstyle
+          key: ${{ matrix.os }}-${{ hashFiles('**/*.cabal', '**/cabal.project', '**/cabal.project.freeze') }}
+          restore-keys: ${{ matrix.os }}-
+
+      # Fixes error:
+      #   Detected Bash version that isn't supported by Nixpkgs (3.2.57(1)-release)
+      #   Please install Bash 4 or greater to continue.
+      - name: Install Bash
+        run: |
+          nix-env -i --from-expression '_: (import ./nix/pkgs.nix {}).pkgs.bash'
+
+      - name: Test nix-shell
+        run: nix-shell --run "echo 'it works \o/'"
+
+      - name: Run 'cabal update'
+        run: nix-shell --run "cabal update"
+
+      - name: Build everything
+        run: nix-shell --run 'cabal build all'
